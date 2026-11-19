@@ -12,6 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# الاختبار: فحص تنسيق كود Python في الحزمة.
+# الغرض: التأكد من توافق الملفات مع قواعد flake8 المعتمدة.
+
 from ament_flake8.main import main_with_errors
 import pytest
 

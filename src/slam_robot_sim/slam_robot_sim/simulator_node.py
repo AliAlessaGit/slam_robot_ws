@@ -1,5 +1,7 @@
-
 """Simulate the robot's ToF and IMU sensor data."""
+
+# الوظيفة: إنشاء قراءات افتراضية لحساسات المسافة ووحدة IMU.
+# الغرض: اختبار تدفق بيانات ROS دون الحاجة إلى توصيل الحساسات.
 
 import json
 import math

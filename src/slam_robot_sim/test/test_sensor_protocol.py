@@ -1,5 +1,8 @@
 """Tests for the sensor protocol parser."""
 
+# الاختبار: التحقق من صحة رسائل JSON الخاصة بالحساسات.
+# الغرض: التأكد من قبول القياسات الصحيحة ورفض البيانات المخالفة.
+
 import json
 
 import pytest

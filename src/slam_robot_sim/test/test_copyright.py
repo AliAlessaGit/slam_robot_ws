@@ -12,6 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# الاختبار: فحص ترويسات حقوق النشر في ملفات الحزمة.
+# الغرض: التحقق من مطابقة الملفات لقواعد الترخيص المعتمدة.
+
 from ament_copyright.main import main
 import pytest
 

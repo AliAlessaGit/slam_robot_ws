@@ -12,6 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# الاختبار: فحص توثيق وحدات ودوال Python في الحزمة.
+# الغرض: التحقق من قواعد التوثيق وفق معيار PEP 257.
+
 from ament_pep257.main import main
 import pytest
 

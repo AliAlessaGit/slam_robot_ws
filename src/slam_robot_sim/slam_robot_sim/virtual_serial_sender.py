@@ -1,4 +1,7 @@
 """Send representative newline-delimited sensor JSON to a serial port."""
+
+# الوظيفة: إرسال عينات JSON تجريبية إلى منفذ تسلسلي افتراضي أو فعلي.
+# الغرض: اختبار مستقبل ROS وتدفق البيانات دون استخدام الحساسات الحقيقية.
 import argparse
 import json
 import time

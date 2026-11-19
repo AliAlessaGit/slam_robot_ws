@@ -1,5 +1,7 @@
-
 """Validate and parse JSON messages received from the robot."""
+
+# الوظيفة: التحقق من بنية رسائل JSON وقياسات الحساسات.
+# الغرض: رفض البيانات غير المطابقة قبل استخدامها في بقية النظام.
 
 import json
 import math
