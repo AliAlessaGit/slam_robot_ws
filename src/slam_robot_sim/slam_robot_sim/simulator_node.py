@@ -5,25 +5,39 @@
 
 import json
 import math
+import array
 
 import rclpy
 from rclpy.node import Node
 
-from std_msgs.msg import String
+from std_msgs.msg import String, Int32MultiArray, MultiArrayDimension
 
 
 class SensorSimulator(Node):
     """Generate and publish simulated robot sensor readings."""
 
+    NUM_SENSORS = 3
+    GRID_SIDE = 8
+
     def __init__(self):
-        """Initialize the simulator node and its publisher."""
+        """Initialize the simulator node and its publishers."""
         super().__init__('sensor_simulator')
 
-        self.publisher = self.create_publisher(
+        self.raw_publisher = self.create_publisher(
             String,
             '/sensors/raw_json',
             10
         )
+
+        # Publish individual sensor grids for downstream nodes
+        self.tof_publishers = [
+            self.create_publisher(
+                Int32MultiArray,
+                f'/sensors/tof/sensor_{i + 1}',
+                10
+            )
+            for i in range(self.NUM_SENSORS)
+        ]
 
         self.frame = 0
 
@@ -38,31 +52,17 @@ class SensorSimulator(Node):
         )
 
     def generate_grid(self, sensor_id):
-        """Generate one simulated 8x8 distance grid."""
+        """Generate one simulated 8x8 distance grid (fixed, no noise)."""
         grid = []
 
         for y in range(8):
             for x in range(7, -1, -1):
+                # جعل المسافة ثابتة بدون ضجيج
+                distance = 1500
 
-                distance = (
-                    1500
-                    + 400 * math.sin(
-                        (x + self.frame * 0.1 + sensor_id) * 0.5
-                    )
-                    + 300 * math.cos(
-                        (y + self.frame * 0.1) * 0.4
-                    )
-                )
-
-                # Simulated obstacle.
+                # عقبة محاكاة ثابتة
                 if 2 <= x <= 4 and 3 <= y <= 5:
                     distance -= 700
-
-                distance = max(100, min(4000, int(distance)))
-
-                # Simulate occasional invalid readings.
-                if (x + y + self.frame) % 37 == 0:
-                    distance = -1
 
                 grid.append(distance)
 
@@ -90,13 +90,25 @@ class SensorSimulator(Node):
         return data
 
     def publish_sensor_data(self):
-        """Publish the simulated sensor data as a JSON string."""
+        """Publish the simulated sensor data as JSON and individual topics."""
         data = self.generate_data()
 
+        # Publish raw JSON
         msg = String()
         msg.data = json.dumps(data)
+        self.raw_publisher.publish(msg)
 
-        self.publisher.publish(msg)
+        # Publish individual sensor grids
+        for i, key in enumerate(['s1', 's2', 's3']):
+            grid = Int32MultiArray()
+            grid.layout.dim = [
+                MultiArrayDimension(label='row', size=self.GRID_SIDE,
+                                    stride=self.GRID_SIDE * self.GRID_SIDE),
+                MultiArrayDimension(label='col', size=self.GRID_SIDE,
+                                    stride=self.GRID_SIDE),
+            ]
+            grid.data = data[key]
+            self.tof_publishers[i].publish(grid)
 
         self.frame += 1
 

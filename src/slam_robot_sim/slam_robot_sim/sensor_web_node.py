@@ -20,6 +20,8 @@ from std_msgs.msg import String
 
 DASHBOARD_PATH = Path(__file__).parent / 'web' / 'index.html'
 
+DEFAULT_PORTS = [8080, 8081, 8082, 8083, 8084]
+
 
 def frame_event(line):
     """Return a dashboard event for a raw serial JSON line, or None."""
@@ -41,9 +43,12 @@ class SensorWebNode(Node):
         super().__init__('sensor_web', parameter_overrides=parameter_overrides)
         self.declare_parameter('host', '0.0.0.0')
         self.declare_parameter('port', 8080)
+        self.declare_parameter('auto_port', True)
         self._host = str(self.get_parameter('host').value)
-        self._port = int(self.get_parameter('port').value)
-        if not 0 <= self._port <= 65535:
+        self._requested_port = int(self.get_parameter('port').value)
+        self._auto_port = bool(self.get_parameter('auto_port').value)
+
+        if not 0 <= self._requested_port <= 65535:
             raise ValueError('port must be between 0 and 65535')
 
         self._latest_frame = None
@@ -57,14 +62,15 @@ class SensorWebNode(Node):
         self._server_thread = threading.Thread(
             target=self._run_server, name='sensor-websocket', daemon=True)
         self._server_thread.start()
-        self._ready.wait(timeout=5.0)
+        self._ready.wait(timeout=10.0)
         if self._server_error is not None:
             raise RuntimeError(
                 f'Cannot start dashboard server: {self._server_error}')
         if not self._ready.is_set():
             raise RuntimeError(
-                'Dashboard server did not start within 5 seconds')
+                'Dashboard server did not start within 10 seconds')
 
+        self._port = self._actual_port
         self._subscription = self.create_subscription(
             String, '/sensors/raw_json', self._on_raw_json, 10)
         self.get_logger().info(
@@ -106,19 +112,43 @@ class SensorWebNode(Node):
             except (ConnectionError, RuntimeError):
                 self._websocket_clients.discard(socket)
 
+    @property
+    def _actual_port(self):
+        """Return the port the server is actually running on."""
+        return getattr(self, '_bound_port', self._requested_port)
+
     def _run_server(self):
         asyncio.set_event_loop(self._loop)
-        try:
-            self._runner = web.AppRunner(self._app)
-            self._loop.run_until_complete(self._runner.setup())
-            site = web.TCPSite(self._runner, self._host, self._port)
-            self._loop.run_until_complete(site.start())
-        except Exception as exc:  # noqa: BLE001 - report startup errors
-            self._server_error = exc
+        ports_to_try = [self._requested_port]
+        if self._auto_port:
+            ports_to_try.extend(
+                p for p in DEFAULT_PORTS if p != self._requested_port)
+
+        last_error = None
+        for port in ports_to_try:
+            try:
+                self._runner = web.AppRunner(self._app)
+                self._loop.run_until_complete(self._runner.setup())
+                site = web.TCPSite(self._runner, self._host, port)
+                self._loop.run_until_complete(site.start())
+                self._bound_port = port
+                self._ready.set()
+                break
+            except OSError as exc:
+                last_error = exc
+                self.get_logger().warning(
+                    f'Port {port} is in use, trying next port...')
+                continue
+            except Exception as exc:  # noqa: BLE001 - report startup errors
+                last_error = exc
+                break
+
+        if last_error is not None and not self._ready.is_set():
+            self._server_error = last_error
             self._ready.set()
             self._loop.close()
             return
-        self._ready.set()
+
         self._loop.run_forever()
         self._loop.run_until_complete(self._runner.cleanup())
         self._loop.close()

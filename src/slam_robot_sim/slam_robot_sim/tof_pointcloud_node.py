@@ -106,6 +106,11 @@ class TofPointCloudNode(Node):
                 self.range_min,
                 self.range_max,
             ))
+        
+        # تسجيل معلومات حول النقاط المنشورة
+        if not points:
+            self.get_logger().warn('No valid points found to publish!', throttle_duration_sec=5.0)
+
         header = self.get_clock().now().to_msg()
         cloud_header = self._make_header(header)
         fields = [
